@@ -169,47 +169,30 @@ Since the Wi-Fi API already exposes every documented remote function, the
 Bluetooth route offers no extra capability for significant risk of being a dead
 end.
 
-### What a scan actually found
+### Settled: the remote broadcasts
 
-A [capture on 22 Aug 2026](../docs/ble-capture-2026-08-22.md) turned up a
-strong, unnamed, **broadcast-only** device emitting ten-byte frames with a
-fixed `08 17` prefix, a byte that varies over `01`–`07`, and a counter that
-advances by exactly one per frame:
+A [capture on 22 Aug 2026](../docs/ble-capture-2026-08-22.md) confirmed it. The
+remote is broadcast-only, emitting a 10-byte proprietary frame:
 
-    08 17 04 03 5C 03 02 01 07 0E
-             ^^ counter
+    08 17 04 03 6A 03 02 01 07 21
+          │  │  │
+          │  │  └── counter, +1 per press (anti-replay)
+          │  └───── 03 for toggles, 00 for up/down
+          └──────── button code, 01-07
 
-A per-press rolling counter on a broadcast-only device is what point 2 above
-predicts. `08 17` read as a little-endian company ID is 0x1708, above the
-highest ID the Bluetooth SIG has assigned, so it is a proprietary marker rather
-than a registered vendor. If this is the remote — the capture notes give the
-one-command experiment that settles it — then the iPhone route is closed by
-point 1, and a bridge is the only way in.
+Byte 2 was confirmed by experiment: holding the fan button for 38 seconds and
+then the light button produced `04` and `01` respectively, changing at exactly
+that boundary. Byte 4 advanced by one per press across 38 consecutive frames
+and never reset.
 
-### Working it out for your fan
+The receiver never advertised at all, in any scan, so it most likely only
+listens.
 
-Two tools do the same job: the **Bluetooth Explorer** screen in the app, and
-`blescan` on a Mac. `blescan` needs an embedded usage description or macOS
-kills it on launch, so build it through the script and run it from Terminal.app
-where the Bluetooth permission prompt can actually appear:
-
-```bash
-./Tools/build-blescan.sh && ./.build/release/blescan 20
-```
-
-Press buttons on the physical remote while either one is scanning, and read the
-result:
-
-- **A device appears, marked "broadcast only", whose manufacturer-data hex
-  changes on each button press.** That is the remote broadcasting commands.
-  An iPhone cannot reproduce this. Wi-Fi or an ESP32 bridge are the options.
-- **A connectable device appears** (likely the receiver). Tap it. The explorer
-  dumps every service and characteristic with its properties, reads the
-  readable ones, and subscribes to the notifying ones. A vendor service with a
-  writable characteristic is the thing worth chasing — share the log and it can
-  be probed further.
-- **Nothing appears on a button press.** The link may not be BLE advertising at
-  all, or the remote's transmit window is too short to catch reliably.
+**This closes the iPhone route for good.** Not for want of understanding the
+protocol, but because point 1 above is absolute: iOS gives an app no way to put
+these bytes on the air. The remaining options are the fan's own Wi-Fi, or an
+ESP32 bridge that transmits the frames and exposes the `/mf` API so the app in
+this repo can drive it unchanged. Both are covered in the capture notes.
 
 ## References
 

@@ -4,10 +4,12 @@ A minimal iPhone app that replaces the Bluetooth remote for a
 [Modern Forms][prod] ceiling fan — light, brightness, fan power, six speeds,
 direction and Breeze Mode.
 
-It talks to the fan over **Wi-Fi**, not Bluetooth. That turned out to be the
-only route an iPhone can actually take, and it loses nothing: see
-[PROTOCOL.md](PROTOCOL.md) for how that was established and the full command
-reference.
+It talks to the fan over **Wi-Fi**, not Bluetooth. That is not a preference:
+sniffing the physical remote proved it broadcasts its commands rather than
+connecting, and iOS gives an app no way to transmit a raw BLE advertisement. No
+iPhone app can impersonate this remote. The frame format is decoded in
+[docs/ble-capture-2026-08-22.md](docs/ble-capture-2026-08-22.md); the Wi-Fi
+command reference is in [PROTOCOL.md](PROTOCOL.md).
 
 <img src="docs/control-screen.png" width="300" alt="The control screen">
 
@@ -89,7 +91,7 @@ A `connectable` device is worth dumping instead:
 ./.build/release/blescan dump <device-uuid>
 ```
 
-A real capture, with the frame layout worked out so far, is in
+The remote's frame format, decoded, is in
 [docs/ble-capture-2026-08-22.md](docs/ble-capture-2026-08-22.md).
 
 ## Build the app
@@ -129,12 +131,11 @@ ceiling fan remotes are typically broadcast-only devices — which is why
 [`ha-ble-adv`][bleadv] needs an ESP32 rather than a phone. Chasing it would
 have meant a hardware sniffer for capability the Wi-Fi API already provides.
 
-**4. Build on Wi-Fi, and ship the Bluetooth instrument anyway.** The app has a
-Bluetooth Explorer screen that dumps nearby advertisements (including
-manufacturer-data hex, which changes per button press on a broadcast remote)
-and walks the GATT tree of anything connectable. If you want to settle the
-question for your own fan, that screen is the tool —
-[PROTOCOL.md](PROTOCOL.md#working-it-out-for-your-fan) explains how to read it.
+**4. Build on Wi-Fi, and ship the Bluetooth instruments anyway.** Those
+instruments then settled it: the remote is broadcast-only, sending a 10-byte
+frame carrying a button code and a per-press rolling counter. Decoded in
+[docs/ble-capture-2026-08-22.md](docs/ble-capture-2026-08-22.md). So step 3 was
+right for a firmer reason than it started with.
 
 ## What's verified, and what isn't
 
