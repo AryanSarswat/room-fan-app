@@ -76,11 +76,21 @@ usage description, so build this one through the script, and run it from
 
 Press buttons on the remote while it scans. A device marked `broadcast-only`
 whose manufacturer-data payload changes on each press is the remote, and an
-iPhone cannot reproduce that. A `connectable` device is worth dumping:
+iPhone cannot reproduce that. Follow one device and see exactly which bytes
+move when you press a single button:
+
+```bash
+./.build/release/blescan watch <device-uuid> 60
+```
+
+A `connectable` device is worth dumping instead:
 
 ```bash
 ./.build/release/blescan dump <device-uuid>
 ```
+
+A real capture, with the frame layout worked out so far, is in
+[docs/ble-capture-2026-08-22.md](docs/ble-capture-2026-08-22.md).
 
 ## Build the app
 

@@ -169,6 +169,23 @@ Since the Wi-Fi API already exposes every documented remote function, the
 Bluetooth route offers no extra capability for significant risk of being a dead
 end.
 
+### What a scan actually found
+
+A [capture on 22 Aug 2026](../docs/ble-capture-2026-08-22.md) turned up a
+strong, unnamed, **broadcast-only** device emitting ten-byte frames with a
+fixed `08 17` prefix, a byte that varies over `01`–`07`, and a counter that
+advances by exactly one per frame:
+
+    08 17 04 03 5C 03 02 01 07 0E
+             ^^ counter
+
+A per-press rolling counter on a broadcast-only device is what point 2 above
+predicts. `08 17` read as a little-endian company ID is 0x1708, above the
+highest ID the Bluetooth SIG has assigned, so it is a proprietary marker rather
+than a registered vendor. If this is the remote — the capture notes give the
+one-command experiment that settles it — then the iPhone route is closed by
+point 1, and a bridge is the only way in.
+
 ### Working it out for your fan
 
 Two tools do the same job: the **Bluetooth Explorer** screen in the app, and
