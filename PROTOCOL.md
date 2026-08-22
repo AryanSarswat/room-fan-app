@@ -23,10 +23,14 @@ Section 5 is **"Fan Wi-Fi Reset"**:
 and the factory-reset notes say a reset "will remove remote control(s), wall
 control(s) **and Modern Forms app connections**."
 
-That settles the architecture: the Bluetooth receiver in the canopy is the same
-board that joins your Wi-Fi. The remote is one of several controllers paired to
-it (up to 10), alongside wall controls and the app. Anything the remote can do,
-the receiver can do — and the receiver is on your network.
+So on Wi-Fi models the Bluetooth receiver and the Wi-Fi radio are one board, and
+the remote is just one of several controllers paired to it (up to 10) alongside
+wall controls and the app.
+
+**This does not prove any particular receiver has Wi-Fi.** The F-RCBT ships
+across the whole product line, so its manual documents functions that only
+apply to some fans, and Modern Forms also sells Bluetooth-only receivers.
+Settle which one you have first — see [Does your fan have Wi-Fi?](#does-your-fan-have-wi-fi).
 
 The remote's documented capabilities also map one-for-one onto the Wi-Fi API,
 which is good evidence they share a state machine:
@@ -39,6 +43,37 @@ which is good evidence they share a state machine:
 | Fan ▲ ▼ | "your fan features 6 speeds" | `fanSpeed` 1–6 |
 | Direction | Summer (CCW) / Winter (CW) | `fanDirection` `forward` / `reverse` |
 | Breeze Mode | "varies the fan speed" | `wind`, `windSpeed` 1–3 |
+
+## Does your fan have Wi-Fi?
+
+Four states, in the order worth checking:
+
+**1. On your network.** `mfctl scan` finds it. Nothing else to do.
+
+**2. Has Wi-Fi, never provisioned.** It broadcasts a soft AP named
+`ModernFormsFan_XXXXXX`. Look at your phone's Wi-Fi list — no tools needed.
+
+**3. Has Wi-Fi, but still holds someone else's SSID.** Common in a house you
+just moved into: the fan is hunting for a network that no longer exists, so it
+is neither on your LAN nor broadcasting an AP. Section 5 of the remote's manual
+fixes this — hold the light ▲ and ▼ buttons for 10 seconds. The LED blinks
+green, the receiver beeps, and the fan starts broadcasting
+`ModernFormsFan_XXXXXX`. It resets Wi-Fi settings only; your remote stays
+paired.
+
+**4. A Bluetooth-only receiver.** No AP, nothing on the network after a Wi-Fi
+reset. The API below does not apply to your fan at all; see
+[The Bluetooth question](#the-bluetooth-question).
+
+Once the fan is broadcasting its own AP, join it (password `intelligence`) and
+it answers on `10.10.10.1`:
+
+```bash
+swift run mfctl 10.10.10.1 status
+```
+
+That is the quickest way to confirm the protocol against real hardware, because
+it needs no provisioning at all.
 
 ## The Wi-Fi API
 
@@ -135,8 +170,17 @@ end.
 
 ### Working it out for your fan
 
-The app ships a **Bluetooth Explorer** screen for exactly this. Open it, press
-buttons on the physical remote, and read the result:
+Two tools do the same job: the **Bluetooth Explorer** screen in the app, and
+`blescan` on a Mac. `blescan` needs an embedded usage description or macOS
+kills it on launch, so build it through the script and run it from Terminal.app
+where the Bluetooth permission prompt can actually appear:
+
+```bash
+./Tools/build-blescan.sh && ./.build/release/blescan 20
+```
+
+Press buttons on the physical remote while either one is scanning, and read the
+result:
 
 - **A device appears, marked "broadcast only", whose manufacturer-data hex
   changes on each button press.** That is the remote broadcasting commands.

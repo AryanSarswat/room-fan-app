@@ -17,8 +17,27 @@ reference.
 | --- | --- |
 | [`Sources/ModernFormsKit`](Sources/ModernFormsKit) | The protocol: state model, commands, HTTP client, subnet discovery |
 | [`Sources/mfctl`](Sources/mfctl) | A CLI to poke the fan from a Mac |
+| [`Sources/blescan`](Sources/blescan) | A Mac Bluetooth probe, for working out what the remote and receiver broadcast |
 | [`App/RoomFan`](App/RoomFan) | The SwiftUI app, plus a Bluetooth Explorer for further digging |
 | [`PROTOCOL.md`](PROTOCOL.md) | The reverse-engineering write-up and API reference |
+
+## First: does your fan have Wi-Fi?
+
+Not all Modern Forms receivers do, and the Bluetooth remote works without it.
+Check in this order — details in
+[PROTOCOL.md](PROTOCOL.md#does-your-fan-have-wi-fi):
+
+1. **`swift run mfctl scan`** — if it finds the fan, you are done.
+2. **Look at your phone's Wi-Fi list for `ModernFormsFan_XXXXXX`.** That means
+   the fan has Wi-Fi but was never set up. Join it (password `intelligence`)
+   and the fan answers on `10.10.10.1`.
+3. **Neither?** If you moved into the house, the fan may still be looking for
+   the previous owner's network. Hold the light ▲ and ▼ buttons on the remote
+   for 10 seconds — this resets Wi-Fi settings only, keeps your remote paired,
+   and makes the fan broadcast `ModernFormsFan_XXXXXX`. Then retry step 2.
+4. **Still nothing?** You likely have a Bluetooth-only receiver, and this app
+   cannot reach it. Run the Bluetooth probe below and see
+   [The Bluetooth question](PROTOCOL.md#the-bluetooth-question).
 
 ## Try it against your fan
 
@@ -41,6 +60,24 @@ Or with no Swift at all:
 
 ```bash
 curl -X POST http://192.168.1.50/mf -H 'Content-Type: application/json' -d '{"fanOn":true,"fanSpeed":4,"queryDynamicShadowData":true}'
+```
+
+## Probe the Bluetooth side
+
+macOS kills a command-line tool that touches Bluetooth without an embedded
+usage description, so build this one through the script, and run it from
+**Terminal.app** — the permission prompt cannot appear otherwise.
+
+```bash
+./Tools/build-blescan.sh && ./.build/release/blescan 20
+```
+
+Press buttons on the remote while it scans. A device marked `broadcast-only`
+whose manufacturer-data payload changes on each press is the remote, and an
+iPhone cannot reproduce that. A `connectable` device is worth dumping:
+
+```bash
+./.build/release/blescan dump <device-uuid>
 ```
 
 ## Build the app
@@ -104,16 +141,24 @@ To run the emulator yourself:
 git clone https://github.com/wonderslug/aiomodernforms && cd aiomodernforms && pip install aiohttp backoff && python -m mock_fan --generation gen3 --breeze --port 8088
 ```
 
-**Not verified against real hardware.** Nobody has yet pointed this at an
-actual fan. The emulator implements the same wire protocol as the Home
-Assistant client, so the risk is low, but two things are genuinely assumptions:
+**Not verified against real hardware.** One attempt has been made. On the
+author's network a full sweep of the /24 found no fan: eight live hosts, two of
+them embedded web servers that 404 on `/mf` and turned out by MAC prefix to be
+Meross devices. The fan itself never appeared — consistent with a receiver
+whose Wi-Fi was never provisioned, since the house had no Wi-Fi when the fan
+was inherited. A Bluetooth scan from the same Mac was not possible either:
+macOS refuses Bluetooth to a process that cannot show a permission prompt.
+
+So two things remain assumptions:
 
 - That setting `fanSpeed` should also send `fanOn: true` (and likewise for
   brightness), matching what the remote does on a stopped fan.
-- That your receiver is on Wi-Fi at all. If your fan predates 2021 or is an RF
-  model rather than Bluetooth, none of this applies.
+- That your receiver is on Wi-Fi at all. If your fan predates 2021, is an RF
+  model, or has a Bluetooth-only receiver, none of this applies. Work through
+  [does your fan have Wi-Fi?](#first-does-your-fan-have-wi-fi) first.
 
-The Bluetooth Explorer is diagnostics only — it reads, it does not control.
+Both tools that read Bluetooth — `blescan` and the app's Bluetooth Explorer —
+are diagnostics only. They read; they do not control.
 
 ## References
 

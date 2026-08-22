@@ -7,10 +7,12 @@ let package = Package(
     products: [
         .library(name: "ModernFormsKit", targets: ["ModernFormsKit"]),
         .executable(name: "mfctl", targets: ["mfctl"]),
+        .executable(name: "blescan", targets: ["blescan"]),
     ],
     targets: [
         .target(name: "ModernFormsKit"),
         .executableTarget(name: "mfctl", dependencies: ["ModernFormsKit"]),
+        .executableTarget(name: "blescan"),
         .testTarget(name: "ModernFormsKitTests", dependencies: ["ModernFormsKit"]),
     ]
 )

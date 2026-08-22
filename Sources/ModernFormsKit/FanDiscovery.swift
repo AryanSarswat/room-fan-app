@@ -16,27 +16,42 @@ public enum FanDiscovery {
         public var id: String { host }
     }
 
+    /// Probing all 254 addresses at once exhausts sockets on a busy network and
+    /// silently loses answers, so they go out in waves.
+    private static let maxConcurrentProbes = 48
+
     public static func scan(
         subnetOf address: String? = localIPv4(),
         timeout: TimeInterval = 2
     ) async -> [Fan] {
         guard let address, let prefix = subnetPrefix(of: address) else { return [] }
+        let octets = Array(1...254)
 
         return await withTaskGroup(of: Fan?.self) { group in
-            for octet in 1...254 {
-                group.addTask {
-                    let host = "\(prefix).\(octet)"
-                    guard let client = ModernFormsClient(host: host, timeout: timeout),
-                          let state = try? await client.status() else { return nil }
-                    return Fan(host: host, state: state)
-                }
+            var next = 0
+            while next < min(maxConcurrentProbes, octets.count) {
+                let host = "\(prefix).\(octets[next])"
+                group.addTask { await probe(host, timeout: timeout) }
+                next += 1
             }
+
             var found: [Fan] = []
-            for await fan in group {
-                if let fan { found.append(fan) }
+            while let result = await group.next() {
+                if let fan = result { found.append(fan) }
+                if next < octets.count {
+                    let host = "\(prefix).\(octets[next])"
+                    group.addTask { await probe(host, timeout: timeout) }
+                    next += 1
+                }
             }
             return found.sorted { $0.host.compare($1.host, options: .numeric) == .orderedAscending }
         }
+    }
+
+    private static func probe(_ host: String, timeout: TimeInterval) async -> Fan? {
+        guard let client = ModernFormsClient(host: host, timeout: timeout),
+              let state = try? await client.status() else { return nil }
+        return Fan(host: host, state: state)
     }
 
     static func subnetPrefix(of address: String) -> String? {
