@@ -171,7 +171,7 @@ end.
 
 ### Settled: the remote broadcasts
 
-A [capture on 22 Aug 2026](../docs/ble-capture-2026-08-22.md) confirmed it. The
+A [capture on 22 Aug 2026](docs/ble-capture-2026-08-22.md) confirmed it. The
 remote is broadcast-only, emitting a 10-byte proprietary frame:
 
     08 17 04 03 6A 03 02 01 07 21
