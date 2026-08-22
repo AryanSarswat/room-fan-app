@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+App/RoomFan.xcodeproj/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.DS_Store

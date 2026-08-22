@@ -1,0 +1,43 @@
+name: RoomFan
+options:
+  bundleIdPrefix: com.aryansarswat
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+packages:
+  ModernFormsKit:
+    path: ..
+targets:
+  RoomFan:
+    type: application
+    platform: iOS
+    sources: [RoomFan]
+    dependencies:
+      - package: ModernFormsKit
+        product: ModernFormsKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aryansarswat.RoomFan
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: RoomFan/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 7HNQ73CFKX
+    info:
+      path: RoomFan/Info.plist
+      properties:
+        CFBundleDisplayName: Room Fan
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSLocalNetworkUsageDescription: >-
+          Room Fan sends commands directly to your ceiling fan over your Wi-Fi
+          network. Without this it cannot reach the fan.
+        NSBluetoothAlwaysUsageDescription: >-
+          Used by the Bluetooth Explorer screen to inspect what your fan
+          receiver and its remote broadcast.
