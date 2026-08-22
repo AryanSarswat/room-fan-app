@@ -4,11 +4,18 @@ import Foundation
 /// Bluetooth probe for the fan receiver and its remote, run from a Mac.
 ///
 ///     blescan [seconds]        list what is advertising nearby
+///     blescan watch <uuid>     follow one device, marking which bytes change
 ///     blescan dump <uuid>      connect to one device and walk its GATT tree
 ///
 /// The question it exists to answer: does the receiver accept connections, or
 /// does the remote simply broadcast? iOS can speak to the former and can never
 /// impersonate the latter.
+enum Mode {
+    case list
+    case watch(UUID)
+    case dump(UUID)
+}
+
 final class Scanner: NSObject, @unchecked Sendable {
     private struct Seen {
         var name: String
@@ -24,10 +31,12 @@ final class Scanner: NSObject, @unchecked Sendable {
     private let queue = DispatchQueue(label: "blescan")
     private var central: CBCentralManager!
     private var seen: [UUID: Seen] = [:]
-    private let target: UUID?
+    private var lastWatched: [UInt8]?
+    private let started = Date()
+    private let mode: Mode
 
-    init(connectTo target: UUID?) {
-        self.target = target
+    init(mode: Mode) {
+        self.mode = mode
         super.init()
         central = CBCentralManager(delegate: self, queue: queue)
     }
@@ -56,6 +65,26 @@ final class Scanner: NSObject, @unchecked Sendable {
             }
         }
     }
+
+    /// Prints one advert against the previous one, so a button press shows up
+    /// as a handful of marked byte positions rather than a wall of hex.
+    private func trace(_ payload: Data) {
+        let bytes = [UInt8](payload)
+        defer { lastWatched = bytes }
+        guard bytes != lastWatched else { return }
+
+        let stamp = String(format: "%6.2fs", Date().timeIntervalSince(started))
+        print("\(stamp)  \(payload.hex)")
+
+        guard let previous = lastWatched else { return }
+        var marks = ""
+        for index in 0..<max(bytes.count, previous.count) {
+            let old = index < previous.count ? previous[index] : nil
+            let new = index < bytes.count ? bytes[index] : nil
+            marks += (old == new) ? "   " : "^^ "
+        }
+        print("         \(marks)")
+    }
 }
 
 extension Scanner: CBCentralManagerDelegate {
@@ -64,21 +93,20 @@ extension Scanner: CBCentralManagerDelegate {
             print("Bluetooth unavailable (state \(central.state.rawValue)).")
             return
         }
-        if let target {
-            let known = central.retrievePeripherals(withIdentifiers: [target])
-            guard let peripheral = known.first else {
+        if case .dump(let target) = mode {
+            guard let peripheral = central.retrievePeripherals(withIdentifiers: [target]).first else {
                 print("That device is not known to this Mac; run a plain scan first.")
                 exit(1)
             }
             print("Connecting to \(peripheral.name ?? target.uuidString)…")
             central.connect(peripheral)
-        } else {
-            // Duplicates are needed to notice a payload change on a button press.
-            central.scanForPeripherals(
-                withServices: nil,
-                options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
-            )
+            return
         }
+        // Duplicates are needed to notice a payload change on a button press.
+        central.scanForPeripherals(
+            withServices: nil,
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+        )
     }
 
     func centralManager(
@@ -87,7 +115,15 @@ extension Scanner: CBCentralManagerDelegate {
         advertisementData: [String: Any],
         rssi RSSI: NSNumber
     ) {
-        let payload = (advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data)?.hex
+        let raw = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data
+
+        if case .watch(let target) = mode {
+            guard peripheral.identifier == target, let raw else { return }
+            trace(raw)
+            return
+        }
+
+        let payload = raw?.hex
         let name = peripheral.name
             ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
             ?? "(unnamed)"
@@ -174,14 +210,30 @@ extension CBCharacteristicProperties {
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
-if arguments.first == "dump", let id = arguments.dropFirst().first.flatMap(UUID.init(uuidString:)) {
-    let scanner = Scanner(connectTo: id)
+let identifier = arguments.dropFirst().first.flatMap(UUID.init(uuidString:))
+
+switch (arguments.first, identifier) {
+case ("dump", .some(let id)):
+    let scanner = Scanner(mode: .dump(id))
     RunLoop.main.run(until: .now + 15)
     _ = scanner
-} else {
+
+case ("watch", .some(let id)):
+    let seconds = arguments.dropFirst(2).first.flatMap(Double.init) ?? 60
+    print("Watching \(id) for \(Int(seconds))s. Press ONE button repeatedly.")
+    print("Marked columns are the bytes that changed since the advert above.\n")
+    let scanner = Scanner(mode: .watch(id))
+    RunLoop.main.run(until: .now + seconds)
+    _ = scanner
+
+case ("dump", .none), ("watch", .none):
+    print("That is not a device UUID. Copy the `id` line from a plain scan.")
+    exit(2)
+
+default:
     let seconds = arguments.first.flatMap(Double.init) ?? 15
     print("Scanning \(Int(seconds))s — press buttons on the remote now.")
-    let scanner = Scanner(connectTo: nil)
+    let scanner = Scanner(mode: .list)
     RunLoop.main.run(until: .now + seconds)
     scanner.report()
 }
