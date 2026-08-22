@@ -32,9 +32,11 @@ Check in this order — details in
    the fan has Wi-Fi but was never set up. Join it (password `intelligence`)
    and the fan answers on `10.10.10.1`.
 3. **Neither?** If you moved into the house, the fan may still be looking for
-   the previous owner's network. Hold the light ▲ and ▼ buttons on the remote
-   for 10 seconds — this resets Wi-Fi settings only, keeps your remote paired,
-   and makes the fan broadcast `ModernFormsFan_XXXXXX`. Then retry step 2.
+   the previous owner's network. Section 5 of the [instruction sheet][inst]
+   resets that: hold the two buttons it pictures for 10 seconds (they are drawn
+   rather than named, so check the sheet). This resets Wi-Fi settings only,
+   keeps your remote paired, and makes the fan broadcast
+   `ModernFormsFan_XXXXXX`. Then retry step 2.
 4. **Still nothing?** You likely have a Bluetooth-only receiver, and this app
    cannot reach it. Run the Bluetooth probe below and see
    [The Bluetooth question](PROTOCOL.md#the-bluetooth-question).

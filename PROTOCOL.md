@@ -16,8 +16,8 @@ all. So this project drives the fan over Wi-Fi.
 The [F-RCBT-WT operation instructions][inst] describe more than fan control.
 Section 5 is **"Fan Wi-Fi Reset"**:
 
-> Press and hold the ▲ and ▼ buttons for 10 sec. […] After the Wi-Fi resets,
-> the fan will broadcast its factory set network name beginning with
+> NOTE: This function only resets the Wi-Fi settings. […] After the Wi-Fi
+> resets, the fan will broadcast its factory set network name beginning with
 > "ModernFormsFan."
 
 and the factory-reset notes say a reset "will remove remote control(s), wall
@@ -38,9 +38,9 @@ which is good evidence they share a state machine:
 | Remote button | Manual says | Wi-Fi API |
 | --- | --- | --- |
 | Light on/off | toggles the light | `lightOn` |
-| Light ▲ ▼ | dims to 1% | `lightBrightness` 1–100 |
+| Light up/down | "press or hold to increase/decrease the light level" | `lightBrightness` 1–100 |
 | Fan on/off | toggles the fan | `fanOn` |
-| Fan ▲ ▼ | "your fan features 6 speeds" | `fanSpeed` 1–6 |
+| Fan up/down | "your fan features 6 speeds" | `fanSpeed` 1–6 |
 | Direction | Summer (CCW) / Winter (CW) | `fanDirection` `forward` / `reverse` |
 | Breeze Mode | "varies the fan speed" | `wind`, `windSpeed` 1–3 |
 
@@ -55,11 +55,12 @@ Four states, in the order worth checking:
 
 **3. Has Wi-Fi, but still holds someone else's SSID.** Common in a house you
 just moved into: the fan is hunting for a network that no longer exists, so it
-is neither on your LAN nor broadcasting an AP. Section 5 of the remote's manual
-fixes this — hold the light ▲ and ▼ buttons for 10 seconds. The LED blinks
-green, the receiver beeps, and the fan starts broadcasting
-`ModernFormsFan_XXXXXX`. It resets Wi-Fi settings only; your remote stays
-paired.
+is neither on your LAN nor broadcasting an AP. Section 5 of the [instruction
+sheet][inst] fixes this: hold the two buttons it pictures for 10 seconds, and
+the LED blinks green, the receiver beeps, and the fan starts broadcasting
+`ModernFormsFan_XXXXXX`. Which two buttons is drawn as artwork rather than
+written out, so check the sheet; it is one page. This resets Wi-Fi settings
+only, and your remote stays paired.
 
 **4. A Bluetooth-only receiver.** No AP, nothing on the network after a Wi-Fi
 reset. The API below does not apply to your fan at all; see
