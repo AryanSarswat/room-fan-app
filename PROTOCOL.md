@@ -159,7 +159,8 @@ principles, and the conclusion is that it is the wrong road for an iPhone app:
    devices that never connect; they blast a short encoded advert that any
    paired receiver in range acts on. This is the whole premise of the
    [`ha-ble-adv`][bleadv] integration, which covers a long list of fan brands
-   and needs an ESP32 precisely because a phone cannot do it.
+   and requires either a Linux host with its own Bluetooth adapter or an ESP32
+   proxy — hosts that can transmit raw adverts, which an iPhone cannot.
 3. If the receiver *does* accept GATT connections, an app can drive it — but
    the service and characteristic UUIDs, the command framing, and whatever
    pairing token the receiver expects would all still need a sniffer capture
@@ -188,11 +189,21 @@ and never reset.
 The receiver never advertised at all, in any scan, so it most likely only
 listens.
 
-**This closes the iPhone route for good.** Not for want of understanding the
-protocol, but because point 1 above is absolute: iOS gives an app no way to put
-these bytes on the air. The remaining options are the fan's own Wi-Fi, or an
-ESP32 bridge that transmits the frames and exposes the `/mf` API so the app in
-this repo can drive it unchanged. Both are covered in the capture notes.
+**No iOS app can reproduce this frame.** Apple's documentation states that
+`startAdvertising` accepts only a local name and service UUIDs and errors on
+any other key, and an Apple DTS engineer [confirms it][dts]. Even the iBeacon
+path, the one case where iOS emits manufacturer data, hard-codes Apple's own
+company ID. The capture notes work through every route.
+
+That rules out *impersonating the remote*. It does not rule out connecting to
+the receiver, which was never seen advertising — but was also never observed
+during its three-minute pairing window. That test is the open question.
+
+Failing that, something other than the iPhone has to transmit: an Android
+phone, a Linux host with a Bluetooth adapter, or an ESP32. Any of them can
+expose the `/mf` API so the app in this repo drives it unchanged.
+
+[dts]: https://developer.apple.com/forums/thread/775252
 
 ## References
 

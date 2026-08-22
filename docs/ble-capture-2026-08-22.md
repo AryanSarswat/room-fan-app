@@ -8,10 +8,13 @@ Captured from a Mac with `blescan`, 22 Aug 2026. The remote is a Modern Forms
 **The remote broadcasts. It never connects to anything.** It advertises a
 10-byte proprietary frame and the receiver simply listens.
 
-That closes the iPhone route. iOS gives an app no way to put arbitrary bytes
-into a BLE advertisement — `CBPeripheralManager` allows a local name and a list
-of service UUIDs, and nothing else. No iOS app can reproduce these frames, no
-matter how well the protocol is understood. See [what to do instead](#where-that-leaves-an-iphone-app).
+**No iOS app can reproduce that frame.** Not a limitation of this project — a
+platform rule, checked against primary sources in
+[can an iPhone emit this?](#can-an-iphone-emit-this).
+
+That is narrower than "an iPhone cannot control this fan". It rules out
+*impersonating the remote*. Whether the receiver accepts a GATT connection is
+[still open](#the-one-ios-only-path-left).
 
 ## The frame
 
@@ -98,20 +101,65 @@ to do, and 38 frames spanning only `0x6A`–`0x8F` is a narrow window. Treat the
 formula as a curve fit, not as understanding. Frames spanning a counter wrap,
 and frames from the other five button codes, would test it.
 
-## Where that leaves an iPhone app
+## Can an iPhone emit this?
 
-Three options, best first:
+No. Every route was checked against primary sources:
 
-1. **Use the fan's Wi-Fi**, if this receiver has any. Then none of the above
-   matters and the app in this repo works as built. Unresolved — see
-   [does your fan have Wi-Fi?](../PROTOCOL.md#does-your-fan-have-wi-fi).
-2. **An ESP32 bridge.** It can transmit raw advertisements, which is exactly
-   what iOS refuses to do. Have it replay this frame format and expose the
-   Modern Forms `/mf` JSON API over HTTP, and the app in this repo talks to it
-   **unmodified** — the bridge just looks like a Wi-Fi fan. This is the same
-   approach [`ha-ble-adv`](https://github.com/NicoIIT/ha-ble-adv) takes for
-   other fan brands.
-3. **Keep using the remote.** Worth saying plainly.
+| Route | Verdict |
+| --- | --- |
+| `CBPeripheralManager.startAdvertising` with manufacturer data | **Blocked.** Apple's docs: "you may specify only the following two keys" — local name and service UUIDs — and "you receive an error if you specify any other keys." An Apple DTS engineer [confirms the same][dts] |
+| iBeacon via `CLBeaconRegion.peripheralData` | **Blocked.** This *is* the one path where iOS emits AD type `0xFF`, which makes it the obvious thing to try — but the packet is a fixed layout with Apple's company ID hard-coded as `4C 00` followed by subtype `02 15`. It cannot carry `08 17` |
+| Smuggle the bytes into a 128-bit service UUID | **Almost certainly blocked.** A 128-bit UUID is 16 arbitrary bytes, so the *payload* bytes can be put on air — but under AD type `0x07`, not `0xFF`. Any receiver that parses AD structures properly, which is the normal thing to do, will never look at them |
+| Encode into the local name | Same problem: AD type `0x09` |
+| A third-party library that works around it | **None exists.** `flutter_ble_peripheral` documents that on iOS "manufacturerData will be ignored" and works around it by using the service-UUID field — the same dead end |
+
+The restriction is policy rather than hardware: the radio is capable, the API
+will not expose it.
+
+For contrast, **Android has no such restriction**. `AdvertiseData.Builder`
+[`.addManufacturerData(int, byte[])`][android] writes AD type `0xFF` with the
+company ID little-endian, so `addManufacturerData(0x1708, …)` produces exactly
+the bytes above. Any Android phone can already speak this protocol.
+
+## The one iOS-only path left
+
+The receiver never advertised in any scan — but every scan was taken with the
+fan already running and already paired. The remote's manual says pairing "must
+be completed within three (3) minutes of turning the power ON to the fan
+receiver", which implies the receiver behaves differently in that window.
+
+**If it advertises as connectable while pairing, an iPhone can connect to it**
+and none of the broadcast restriction matters.
+
+Worth noting alongside this: Modern Forms' own app controls fans over **Wi-Fi
+and their cloud**, not Bluetooth — setup asks for your Wi-Fi name and password.
+So the vendor ships no Bluetooth app-control path either, which is weak
+evidence against a usable GATT interface existing. Weak, not conclusive: the
+app not using it does not mean it is absent.
+
+The test costs nothing:
+
+1. Kill power to the fan at the breaker for 10 seconds.
+2. Restore power and immediately run `./.build/release/blescan 120`.
+3. Diff the device list against a scan taken before the power cycle. Anything
+   new and `connectable` is the receiver.
+4. `./.build/release/blescan dump <uuid>` to walk its GATT tree.
+
+## If that fails
+
+Something other than the iPhone has to transmit. Any of these works — it is not
+specifically an ESP32:
+
+- **An Android phone**, per the API above. Cheapest if one is lying around.
+- **A Linux host with a Bluetooth adapter.** `ha-ble-adv` supports this
+  directly, no extra hardware.
+- **An ESP32** running [`esphome-ble_adv_proxy`](https://github.com/NicoIIT/esphome-ble_adv_proxy).
+
+Have any of them expose the Modern Forms `/mf` JSON API over HTTP and the app in
+this repo drives it **unmodified** — the bridge just looks like a Wi-Fi fan.
+
+[dts]: https://developer.apple.com/forums/thread/775252
+[android]: https://developer.android.com/reference/android/bluetooth/le/AdvertiseData.Builder#addManufacturerData(int,%20byte[])
 
 ## Still unknown
 
@@ -119,9 +167,10 @@ Three options, best first:
   receiver accepts any remote presenting it.
 - What the check byte actually computes.
 - How the counter behaves at wrap, and how strictly the receiver enforces it.
-- Whether the receiver advertises at all. It never appeared in any scan, so it
-  most likely only listens — meaning there is nothing to connect to even if
-  iOS could.
+- Whether the receiver advertises during its three-minute pairing window. It
+  never appeared in a scan of the fan in normal operation, but that window was
+  never tested. This is the open question that decides whether an iPhone can
+  reach it at all.
 
 ## Ruled out
 

@@ -6,9 +6,10 @@ direction and Breeze Mode.
 
 It talks to the fan over **Wi-Fi**, not Bluetooth. That is not a preference:
 sniffing the physical remote proved it broadcasts its commands rather than
-connecting, and iOS gives an app no way to transmit a raw BLE advertisement. No
-iPhone app can impersonate this remote. The frame format is decoded in
-[docs/ble-capture-2026-08-22.md](docs/ble-capture-2026-08-22.md); the Wi-Fi
+connecting, and iOS gives an app no way to transmit a raw BLE advertisement, so
+no iPhone app can impersonate this remote. The frame is decoded — and every
+claimed workaround checked against Apple's own documentation — in
+[docs/ble-capture-2026-08-22.md](docs/ble-capture-2026-08-22.md). The Wi-Fi
 command reference is in [PROTOCOL.md](PROTOCOL.md).
 
 <img src="docs/control-screen.png" width="300" alt="The control screen">
